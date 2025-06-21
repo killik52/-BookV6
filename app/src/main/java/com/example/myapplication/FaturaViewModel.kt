@@ -1,131 +1,78 @@
 package com.example.myapplication
 
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.LiveData
 import androidx.lifecycle.viewModelScope
 import database.entities.Fatura
+import database.entities.FaturaLixeira
 import database.repository.FaturaRepository
-import kotlinx.coroutines.flow.Flow
+import database.AppDatabase
 import kotlinx.coroutines.launch
 
-class FaturaViewModel(private val repository: FaturaRepository) : ViewModel() {
+class FaturaViewModel(application: Application) : AndroidViewModel(application) {
     
-    // Flow para observar mudanças na lista de faturas
-    val allFaturas: Flow<List<Fatura>> = repository.getAllFaturas()
+    private val repository: FaturaRepository
+    val allFaturas: LiveData<List<Fatura>>
+    
+    init {
+        val dao = AppDatabase.getDatabase(application).faturaDao()
+        val lixeiraDao = AppDatabase.getDatabase(application).faturaLixeiraDao()
+        repository = FaturaRepository(dao, lixeiraDao)
+        allFaturas = repository.getAllFaturas()
+    }
     
     // Função para buscar faturas
-    fun searchFaturas(query: String): Flow<List<Fatura>> = repository.searchFaturas(query)
+    fun searchFaturas(query: String): LiveData<List<Fatura>> = repository.searchFaturas(query)
     
     // Função para obter faturas por status de envio
-    fun getFaturasByEnvioStatus(foiEnviada: Boolean): Flow<List<Fatura>> = repository.getFaturasByEnvioStatus(foiEnviada)
+    fun getFaturasByEnvioStatus(foiEnviada: Boolean): LiveData<List<Fatura>> = repository.getFaturasByEnvioStatus(foiEnviada)
     
     // Função para obter faturas por período
-    fun getFaturasByDateRange(startDate: String, endDate: String): Flow<List<Fatura>> = repository.getFaturasByDateRange(startDate, endDate)
+    fun getFaturasByDateRange(startDate: String, endDate: String): LiveData<List<Fatura>> = repository.getFaturasByDateRange(startDate, endDate)
     
     // Função para inserir fatura
-    fun insertFatura(fatura: Fatura, onSuccess: (Long) -> Unit = {}, onError: (Exception) -> Unit = {}) {
-        viewModelScope.launch {
-            try {
-                val id = repository.insertFatura(fatura)
-                onSuccess(id)
-            } catch (e: Exception) {
-                onError(e)
-            }
-        }
+    fun insertFatura(fatura: Fatura) = viewModelScope.launch {
+        repository.insertFatura(fatura)
     }
     
     // Função para atualizar fatura
-    fun updateFatura(fatura: Fatura, onSuccess: () -> Unit = {}, onError: (Exception) -> Unit = {}) {
-        viewModelScope.launch {
-            try {
-                repository.updateFatura(fatura)
-                onSuccess()
-            } catch (e: Exception) {
-                onError(e)
-            }
-        }
+    fun updateFatura(fatura: Fatura) = viewModelScope.launch {
+        repository.updateFatura(fatura)
     }
     
     // Função para deletar fatura
-    fun deleteFatura(fatura: Fatura, onSuccess: () -> Unit = {}, onError: (Exception) -> Unit = {}) {
-        viewModelScope.launch {
-            try {
-                repository.deleteFatura(fatura)
-                onSuccess()
-            } catch (e: Exception) {
-                onError(e)
-            }
-        }
+    fun deleteFatura(fatura: Fatura) = viewModelScope.launch {
+        repository.deleteFatura(fatura)
     }
     
     // Função para obter fatura por ID
-    fun getFaturaById(id: Long, onSuccess: (Fatura?) -> Unit = {}, onError: (Exception) -> Unit = {}) {
-        viewModelScope.launch {
-            try {
-                val fatura = repository.getFaturaById(id)
-                onSuccess(fatura)
-            } catch (e: Exception) {
-                onError(e)
-            }
-        }
+    fun getFaturaById(id: Long): LiveData<Fatura?> {
+        return repository.getFaturaById(id)
+    }
+    
+    // Função para inserir fatura na lixeira
+    fun insertFaturaLixeira(faturaLixeira: FaturaLixeira) = viewModelScope.launch {
+        repository.insertFaturaLixeira(faturaLixeira)
     }
     
     // Função para obter contagem de faturas
-    fun getFaturaCount(onSuccess: (Int) -> Unit = {}, onError: (Exception) -> Unit = {}) {
-        viewModelScope.launch {
-            try {
-                val count = repository.getFaturaCount()
-                onSuccess(count)
-            } catch (e: Exception) {
-                onError(e)
-            }
-        }
+    fun getFaturaCount(): LiveData<Int> {
+        return repository.getFaturaCount()
     }
     
     // Função para obter total de faturas por período
-    fun getTotalFaturasByDateRange(startDate: String, endDate: String, onSuccess: (Double?) -> Unit = {}, onError: (Exception) -> Unit = {}) {
-        viewModelScope.launch {
-            try {
-                val total = repository.getTotalFaturasByDateRange(startDate, endDate)
-                onSuccess(total)
-            } catch (e: Exception) {
-                onError(e)
-            }
-        }
+    fun getTotalFaturasByDateRange(startDate: String, endDate: String): LiveData<Double?> {
+        return repository.getTotalFaturasByDateRange(startDate, endDate)
     }
     
     // Função para obter contagem de faturas enviadas
-    fun getFaturasEnviadasCount(onSuccess: (Int) -> Unit = {}, onError: (Exception) -> Unit = {}) {
-        viewModelScope.launch {
-            try {
-                val count = repository.getFaturasEnviadasCount()
-                onSuccess(count)
-            } catch (e: Exception) {
-                onError(e)
-            }
-        }
+    fun getFaturasEnviadasCount(): LiveData<Int> {
+        return repository.getFaturasEnviadasCount()
     }
     
     // Função para obter contagem de faturas não enviadas
-    fun getFaturasNaoEnviadasCount(onSuccess: (Int) -> Unit = {}, onError: (Exception) -> Unit = {}) {
-        viewModelScope.launch {
-            try {
-                val count = repository.getFaturasNaoEnviadasCount()
-                onSuccess(count)
-            } catch (e: Exception) {
-                onError(e)
-            }
-        }
-    }
-}
-
-// Factory para criar o ViewModel com dependências
-class FaturaViewModelFactory(private val repository: FaturaRepository) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(FaturaViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return FaturaViewModel(repository) as T
-        }
-        throw IllegalArgumentException("Unknown ViewModel class")
+    fun getFaturasNaoEnviadasCount(): LiveData<Int> {
+        return repository.getFaturasNaoEnviadasCount()
     }
 } 

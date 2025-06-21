@@ -2,6 +2,8 @@ package com.example.myapplication
 
 import android.content.Intent
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
@@ -23,45 +25,58 @@ class ListarClientesActivityRoom : AppCompatActivity() {
     private lateinit var adapter: ClienteAdapter
     private lateinit var clienteViewModel: ClienteViewModel
     private var searchQuery: String = ""
+    private lateinit var editTextBusca: android.widget.EditText
+    private lateinit var listaClientes: MutableList<Cliente>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_listar_clientes)
 
         // Inicializa o ViewModel
-        val repository = ClienteRepository((application as MyApplication).database.clienteDao())
-        val factory = ClienteViewModelFactory(repository)
-        clienteViewModel = ViewModelProvider(this, factory)[ClienteViewModel::class.java]
+        clienteViewModel = ViewModelProvider(this)[ClienteViewModel::class.java]
 
-        // Configura o RecyclerView
-        recyclerView = findViewById(R.id.listViewClientes)
-        adapter = ClienteAdapter { cliente ->
-            // Callback quando um cliente é clicado
+        // Configura a RecyclerView
+        recyclerView = findViewById(R.id.recyclerViewClientes)
+        recyclerView.layoutManager = LinearLayoutManager(this)
+        adapter = ClienteAdapter(this) { cliente ->
             abrirDetalhesCliente(cliente)
         }
-        
-        recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.adapter = adapter
 
-        // Observa mudanças na lista de clientes
-        observeClientes()
+        // Adiciona espaçamento entre os itens
+        recyclerView.addItemDecoration(VerticalSpaceItemDecoration(16))
+
+        // Configura a busca
+        editTextBusca = findViewById(R.id.editTextBusca)
+        editTextBusca.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                filtrarClientes(s.toString())
+            }
+        })
+
+        // Carrega os clientes
+        carregarClientes()
     }
 
-    private fun observeClientes() {
-        lifecycleScope.launch {
-            if (searchQuery.isEmpty()) {
-                // Observa todos os clientes
-                clienteViewModel.allClientes.collectLatest { clientes ->
-                    adapter.submitList(clientes)
-                    Log.d("ListarClientesActivityRoom", "Carregados ${clientes.size} clientes")
-                }
-            } else {
-                // Observa resultados da busca
-                clienteViewModel.searchClientes(searchQuery).collectLatest { clientes ->
-                    adapter.submitList(clientes)
-                    Log.d("ListarClientesActivityRoom", "Encontrados ${clientes.size} clientes para '$searchQuery'")
-                }
+    private fun carregarClientes() {
+        clienteViewModel.getAllClientes().observe(this) { clientes ->
+            listaClientes = clientes.toMutableList()
+            adapter.submitList(listaClientes)
+        }
+    }
+
+    private fun filtrarClientes(query: String) {
+        if (query.isEmpty()) {
+            adapter.submitList(listaClientes)
+        } else {
+            val clientesFiltrados = listaClientes.filter { cliente ->
+                cliente.nome.contains(query, ignoreCase = true) ||
+                cliente.email.contains(query, ignoreCase = true) ||
+                cliente.telefone.contains(query, ignoreCase = true)
             }
+            adapter.submitList(clientesFiltrados)
         }
     }
 
@@ -86,7 +101,7 @@ class ListarClientesActivityRoom : AppCompatActivity() {
             override fun onQueryTextChange(newText: String?): Boolean {
                 searchQuery = newText ?: ""
                 // Reobserva os clientes com a nova query
-                observeClientes()
+                filtrarClientes(searchQuery)
                 return true
             }
         })
@@ -120,6 +135,7 @@ class ListarClientesActivityRoom : AppCompatActivity() {
 
 // Adapter para o RecyclerView usando ListAdapter
 class ClienteAdapter(
+    private val context: android.content.Context,
     private val onClienteClick: (Cliente) -> Unit
 ) : androidx.recyclerview.widget.ListAdapter<Cliente, ClienteAdapter.ClienteViewHolder>(ClienteDiffCallback()) {
 

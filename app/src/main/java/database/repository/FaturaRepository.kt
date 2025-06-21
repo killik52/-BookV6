@@ -1,23 +1,26 @@
 package database.repository
 
+import androidx.lifecycle.LiveData
 import database.dao.FaturaDao
+import database.dao.FaturaLixeiraDao
 import database.entities.Fatura
-import kotlinx.coroutines.flow.Flow
+import database.entities.FaturaLixeira
 
 class FaturaRepository(
-    private val faturaDao: FaturaDao
+    private val faturaDao: FaturaDao,
+    private val faturaLixeiraDao: FaturaLixeiraDao? = null
 ) {
-    fun getAllFaturas(): Flow<List<Fatura>> = faturaDao.getAllFaturas()
+    fun getAllFaturas(): LiveData<List<Fatura>> = faturaDao.getAllFaturas()
     
-    suspend fun getFaturaById(id: Long): Fatura? = faturaDao.getFaturaById(id)
+    fun getFaturaById(id: Long): LiveData<Fatura?> = faturaDao.getFaturaById(id)
     
-    fun searchFaturas(searchQuery: String): Flow<List<Fatura>> = faturaDao.searchFaturas(searchQuery)
+    fun searchFaturas(searchQuery: String): LiveData<List<Fatura>> = faturaDao.searchFaturas(searchQuery)
     
-    fun getFaturasByEnvioStatus(foiEnviada: Boolean): Flow<List<Fatura>> = faturaDao.getFaturasByEnvioStatus(foiEnviada)
+    fun getFaturasByEnvioStatus(foiEnviada: Boolean): LiveData<List<Fatura>> = faturaDao.getFaturasByEnvioStatus(foiEnviada)
     
-    fun getFaturasByDateRange(startDate: String, endDate: String): Flow<List<Fatura>> = faturaDao.getFaturasByDateRange(startDate, endDate)
+    fun getFaturasByDateRange(startDate: String, endDate: String): LiveData<List<Fatura>> = faturaDao.getFaturasByDateRange(startDate, endDate)
     
-    suspend fun getTotalFaturasByDateRange(startDate: String, endDate: String): Double? = faturaDao.getTotalFaturasByDateRange(startDate, endDate)
+    fun getTotalFaturasByDateRange(startDate: String, endDate: String): LiveData<Double?> = faturaDao.getTotalFaturasByDateRange(startDate, endDate)
     
     suspend fun insertFatura(fatura: Fatura): Long = faturaDao.insertFatura(fatura)
     
@@ -27,9 +30,13 @@ class FaturaRepository(
     
     suspend fun deleteFaturaById(id: Long) = faturaDao.deleteFaturaById(id)
     
-    suspend fun getFaturaCount(): Int = faturaDao.getFaturaCount()
+    fun getFaturaCount(): LiveData<Int> = faturaDao.getFaturaCount()
     
-    suspend fun getFaturasEnviadasCount(): Int = faturaDao.getFaturasEnviadasCount()
+    fun getFaturasEnviadasCount(): LiveData<Int> = faturaDao.getFaturasEnviadasCount()
     
-    suspend fun getFaturasNaoEnviadasCount(): Int = faturaDao.getFaturasNaoEnviadasCount()
+    fun getFaturasNaoEnviadasCount(): LiveData<Int> = faturaDao.getFaturasNaoEnviadasCount()
+    
+    suspend fun insertFaturaLixeira(faturaLixeira: FaturaLixeira): Long {
+        return faturaLixeiraDao?.insertFaturaLixeira(faturaLixeira) ?: -1L
+    }
 } 

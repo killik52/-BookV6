@@ -2,6 +2,7 @@ package com.example.myapplication
 
 import android.os.Bundle
 import android.util.Log
+import android.widget.ArrayAdapter
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import database.AppDatabase
@@ -108,6 +109,28 @@ class RoomExampleActivity : AppCompatActivity() {
                 
             } catch (e: Exception) {
                 Log.e("RoomExample", "Erro ao usar Room Database", e)
+            }
+        }
+    }
+
+    private fun carregarClientes() {
+        clienteViewModel.getAllClientes().observe(this) { clientes ->
+            clientes?.let { listaClientes ->
+                val nomes = listaClientes.map { it.nome }
+                val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, nomes)
+                listViewClientes.adapter = adapter
+                Log.d("RoomExampleActivity", "Carregados ${listaClientes.size} clientes")
+            }
+        }
+    }
+
+    private fun carregarArtigos() {
+        artigoViewModel.getAllArtigos().observe(this) { artigos ->
+            artigos?.let { listaArtigos ->
+                val nomes = listaArtigos.map { it.nome }
+                val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, nomes)
+                listViewArtigos.adapter = adapter
+                Log.d("RoomExampleActivity", "Carregados ${listaArtigos.size} artigos")
             }
         }
     }

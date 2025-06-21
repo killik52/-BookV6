@@ -80,6 +80,7 @@ class DataMigrationHelper(private val context: Context) {
             "clientes", null, null, null, null, null, null
         )
         
+        var count = 0
         cursor?.use {
             while (it.moveToNext()) {
                 val cliente = Cliente(
@@ -101,6 +102,7 @@ class DataMigrationHelper(private val context: Context) {
                 )
                 
                 repository.insertCliente(cliente)
+                count++
             }
         }
         
@@ -119,6 +121,7 @@ class DataMigrationHelper(private val context: Context) {
             "artigos", null, null, null, null, null, null
         )
         
+        var count = 0
         cursor?.use {
             while (it.moveToNext()) {
                 val artigo = Artigo(
@@ -133,6 +136,7 @@ class DataMigrationHelper(private val context: Context) {
                 )
                 
                 repository.insertArtigo(artigo)
+                count++
             }
         }
         
@@ -151,6 +155,7 @@ class DataMigrationHelper(private val context: Context) {
             "faturas", null, null, null, null, null, null
         )
         
+        var count = 0
         cursor?.use {
             while (it.moveToNext()) {
                 val fatura = Fatura(
@@ -170,6 +175,7 @@ class DataMigrationHelper(private val context: Context) {
                 )
                 
                 repository.insertFatura(fatura)
+                count++
             }
         }
         
@@ -187,6 +193,7 @@ class DataMigrationHelper(private val context: Context) {
             "clientes_bloqueados", null, null, null, null, null, null
         )
         
+        var count = 0
         cursor?.use {
             while (it.moveToNext()) {
                 // Para clientes bloqueados, você pode criar uma entidade separada
@@ -194,6 +201,7 @@ class DataMigrationHelper(private val context: Context) {
                 // Por enquanto, vamos apenas logar
                 val nome = it.getString(it.getColumnIndexOrThrow("nome"))
                 Log.d("DataMigrationHelper", "Cliente bloqueado encontrado: $nome")
+                count++
             }
         }
         

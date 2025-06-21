@@ -47,9 +47,7 @@ class ClienteActivityRoom : AppCompatActivity() {
         setContentView(R.layout.activity_cliente)
 
         // Inicializa o ViewModel
-        val repository = ClienteRepository((application as MyApplication).database.clienteDao())
-        val factory = ClienteViewModelFactory(repository)
-        clienteViewModel = ViewModelProvider(this, factory)[ClienteViewModel::class.java]
+        clienteViewModel = ViewModelProvider(this)[ClienteViewModel::class.java]
 
         // Referencia todos os elementos da interface
         editTextNomeDetalhe = findViewById(R.id.editTextNomeDetalhe)
@@ -80,18 +78,12 @@ class ClienteActivityRoom : AppCompatActivity() {
     }
 
     private fun loadAndDisplayClientData(id: Long) {
-        clienteViewModel.getClienteById(id,
-            onSuccess = { cliente ->
-                cliente?.let {
-                    clienteAtual = it
-                    displayClientData(it)
-                }
-            },
-            onError = { exception ->
-                Log.e("ClienteActivityRoom", "Erro ao carregar cliente: ${exception.message}")
-                showToast("Erro ao carregar dados do cliente")
+        clienteViewModel.getClienteById(id).observe(this) { cliente ->
+            cliente?.let {
+                clienteAtual = it
+                displayClientData(it)
             }
-        )
+        }
     }
 
     private fun displayClientData(cliente: Cliente) {
@@ -133,20 +125,13 @@ class ClienteActivityRoom : AppCompatActivity() {
 
     private fun excluirCliente() {
         clienteAtual?.let { cliente ->
-            clienteViewModel.deleteCliente(cliente,
-                onSuccess = {
-                    showToast("Cliente excluído com sucesso!")
-                    val resultIntent = Intent()
-                    resultIntent.putExtra("cliente_excluido", true)
-                    resultIntent.putExtra("cliente_id_excluido", clienteId)
-                    setResult(RESULT_OK, resultIntent)
-                    finish()
-                },
-                onError = { exception ->
-                    Log.e("ClienteActivityRoom", "Erro ao excluir cliente: ${exception.message}")
-                    showToast("Erro ao excluir cliente")
-                }
-            )
+            clienteViewModel.deleteCliente(cliente)
+            showToast("Cliente excluído com sucesso!")
+            val resultIntent = Intent()
+            resultIntent.putExtra("cliente_excluido", true)
+            resultIntent.putExtra("cliente_id_excluido", clienteId)
+            setResult(RESULT_OK, resultIntent)
+            finish()
         } ?: run {
             showToast("Não é possível excluir. Cliente não salvo.")
         }
@@ -204,18 +189,11 @@ class ClienteActivityRoom : AppCompatActivity() {
             )
 
             clienteAtualizado?.let { cliente ->
-                clienteViewModel.updateCliente(cliente,
-                    onSuccess = {
-                        val resultIntent = Intent()
-                        resultIntent.putExtra("cliente_atualizado", true)
-                        setResult(RESULT_OK, resultIntent)
-                        Log.d("ClienteActivityRoom", "Cliente $nome atualizado com sucesso ao sair/voltar!")
-                    },
-                    onError = { exception ->
-                        Log.e("ClienteActivityRoom", "Erro ao atualizar cliente: ${exception.message}")
-                        showToast("Erro ao salvar dados do cliente")
-                    }
-                )
+                clienteViewModel.updateCliente(cliente)
+                val resultIntent = Intent()
+                resultIntent.putExtra("cliente_atualizado", true)
+                setResult(RESULT_OK, resultIntent)
+                Log.d("ClienteActivityRoom", "Cliente $nome atualizado com sucesso ao sair/voltar!")
             }
         }
     }
