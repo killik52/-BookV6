@@ -36,8 +36,7 @@ class ListarClientesActivityRoom : AppCompatActivity() {
         clienteViewModel = ViewModelProvider(this)[ClienteViewModel::class.java]
 
         // Configura a RecyclerView
-        recyclerView = findViewById(R.id.recyclerViewClientes)
-        recyclerView.layoutManager = LinearLayoutManager(this)
+        recyclerView = findViewById(R.id.listViewClientes)
         adapter = ClienteAdapter(this) { cliente ->
             abrirDetalhesCliente(cliente)
         }
@@ -46,37 +45,27 @@ class ListarClientesActivityRoom : AppCompatActivity() {
         // Adiciona espaçamento entre os itens
         recyclerView.addItemDecoration(VerticalSpaceItemDecoration(16))
 
-        // Configura a busca
-        editTextBusca = findViewById(R.id.editTextBusca)
-        editTextBusca.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                filtrarClientes(s.toString())
-            }
-        })
-
         // Carrega os clientes
         carregarClientes()
     }
 
     private fun carregarClientes() {
-        clienteViewModel.getAllClientes().observe(this) { clientes ->
-            listaClientes = clientes.toMutableList()
-            adapter.submitList(listaClientes)
+        clienteViewModel.allClientes.observe(this) { clientes ->
+            clientes?.let { listaClientes ->
+                adapter.submitList(listaClientes)
+            }
         }
     }
 
     private fun filtrarClientes(query: String) {
         if (query.isEmpty()) {
-            adapter.submitList(listaClientes)
+            carregarClientes()
         } else {
-            val clientesFiltrados = listaClientes.filter { cliente ->
-                cliente.nome.contains(query, ignoreCase = true) ||
-                cliente.email.contains(query, ignoreCase = true) ||
-                cliente.telefone.contains(query, ignoreCase = true)
+            clienteViewModel.searchClientes(query).observe(this) { clientes ->
+                clientes?.let { listaClientes ->
+                    adapter.submitList(listaClientes)
+                }
             }
-            adapter.submitList(clientesFiltrados)
         }
     }
 

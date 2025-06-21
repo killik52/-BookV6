@@ -140,30 +140,43 @@ class CriarNovoArtigoActivityRoom : AppCompatActivity() {
     private fun excluirArtigoDoBanco(id: Long) {
         try {
             // Busca o artigo e atualiza o flag guardarFatura
-            artigoViewModel.getArtigoById(id).observe(this) { artigo ->
-                artigo?.let { artigoEncontrado ->
-                    val artigoAtualizado = artigoEncontrado.copy(guardarFatura = false)
-                    artigoViewModel.updateArtigo(artigoAtualizado)
-                    showToast("Artigo removido dos itens recentes.")
-                    Log.d("CriarNovoArtigo", "Artigo ID $id marcado para não ser guardado para recentes.")
-                    
-                    val resultIntent = Intent().apply {
-                        putExtra("artigo_id", id)
-                        putExtra("salvar_fatura", false)
-                        putExtra("nome_artigo", binding.editTextNome.text.toString().trim())
-                        putExtra("quantidade", binding.editTextQtd.text.toString().trim().toIntOrNull() ?: 1)
-                        val precoUnitario = try {
-                            normalizeInput(binding.editTextPreco.text.toString().trim().replace("R$\\s*".toRegex(), "")).toDouble()
-                        } catch (e: Exception) { 0.0 }
-                        putExtra("valor", precoUnitario * (binding.editTextQtd.text.toString().trim().toIntOrNull() ?: 1))
-                        putExtra("preco_unitario_artigo", precoUnitario)
-                        putExtra("numero_serial", binding.editTextNumeroSerial.text.toString().trim())
-                        putExtra("descricao", binding.editTextDescricao.text.toString().trim())
+            artigoViewModel.getArtigoById(id,
+                onSuccess = { artigo ->
+                    artigo?.let { artigoEncontrado ->
+                        val artigoAtualizado = artigoEncontrado.copy(guardarFatura = false)
+                        artigoViewModel.updateArtigo(artigoAtualizado,
+                            onSuccess = {
+                                showToast("Artigo removido dos itens recentes.")
+                                Log.d("CriarNovoArtigo", "Artigo ID $id marcado para não ser guardado para recentes.")
+                                
+                                val resultIntent = Intent().apply {
+                                    putExtra("artigo_id", id)
+                                    putExtra("salvar_fatura", false)
+                                    putExtra("nome_artigo", binding.editTextNome.text.toString().trim())
+                                    putExtra("quantidade", binding.editTextQtd.text.toString().trim().toIntOrNull() ?: 1)
+                                    val precoUnitario = try {
+                                        normalizeInput(binding.editTextPreco.text.toString().trim().replace("R$\\s*".toRegex(), "")).toDouble()
+                                    } catch (e: Exception) { 0.0 }
+                                    putExtra("valor", precoUnitario * (binding.editTextQtd.text.toString().trim().toIntOrNull() ?: 1))
+                                    putExtra("preco_unitario_artigo", precoUnitario)
+                                    putExtra("numero_serial", binding.editTextNumeroSerial.text.toString().trim())
+                                    putExtra("descricao", binding.editTextDescricao.text.toString().trim())
+                                }
+                                setResult(Activity.RESULT_OK, resultIntent)
+                                finish()
+                            },
+                            onError = { exception ->
+                                showToast("Erro ao remover artigo dos recentes: ${exception.message}")
+                                Log.e("CriarNovoArtigo", "Erro ao remover artigo ID $id dos recentes: ${exception.message}")
+                            }
+                        )
                     }
-                    setResult(Activity.RESULT_OK, resultIntent)
-                    finish()
+                },
+                onError = { exception ->
+                    showToast("Erro ao buscar artigo: ${exception.message}")
+                    Log.e("CriarNovoArtigo", "Erro ao buscar artigo ID $id: ${exception.message}")
                 }
-            }
+            )
         } catch (e: Exception) {
             showToast("Erro ao remover artigo dos recentes: ${e.message}")
             Log.e("CriarNovoArtigo", "Erro ao remover artigo ID $id dos recentes: ${e.message}")
@@ -213,21 +226,34 @@ class CriarNovoArtigoActivityRoom : AppCompatActivity() {
             try {
                 if (artigoId != -1L) {
                     // Atualiza artigo existente
-                    artigoViewModel.getArtigoById(artigoId).observe(this) { artigo ->
-                        artigo?.let { artigoEncontrado ->
-                            val artigoAtualizado = artigoEncontrado.copy(
-                                nome = nome,
-                                preco = precoUnitario,
-                                quantidade = 1,
-                                desconto = 0.0,
-                                descricao = descricao,
-                                guardarFatura = true,
-                                numeroSerial = numeroSerial
-                            )
-                            artigoViewModel.updateArtigo(artigoAtualizado)
-                            showToast("Artigo atualizado e guardado para recentes!")
+                    artigoViewModel.getArtigoById(artigoId,
+                        onSuccess = { artigo ->
+                            artigo?.let { artigoEncontrado ->
+                                val artigoAtualizado = artigoEncontrado.copy(
+                                    nome = nome,
+                                    preco = precoUnitario,
+                                    quantidade = 1,
+                                    desconto = 0.0,
+                                    descricao = descricao,
+                                    guardarFatura = true,
+                                    numeroSerial = numeroSerial
+                                )
+                                artigoViewModel.updateArtigo(artigoAtualizado,
+                                    onSuccess = {
+                                        showToast("Artigo atualizado e guardado para recentes!")
+                                    },
+                                    onError = { exception ->
+                                        Log.e("CriarNovoArtigo", "Erro ao atualizar artigo: ${exception.message}")
+                                        showToast("Erro ao atualizar artigo")
+                                    }
+                                )
+                            }
+                        },
+                        onError = { exception ->
+                            Log.e("CriarNovoArtigo", "Erro ao buscar artigo: ${exception.message}")
+                            showToast("Erro ao buscar artigo")
                         }
-                    }
+                    )
                 } else {
                     // Cria novo artigo
                     val novoArtigo = Artigo(
@@ -240,8 +266,15 @@ class CriarNovoArtigoActivityRoom : AppCompatActivity() {
                         guardarFatura = true,
                         numeroSerial = numeroSerial
                     )
-                    artigoViewModel.insertArtigo(novoArtigo)
-                    showToast("Novo artigo salvo e guardado para recentes!")
+                    artigoViewModel.insertArtigo(novoArtigo,
+                        onSuccess = { id ->
+                            showToast("Novo artigo salvo e guardado para recentes!")
+                        },
+                        onError = { exception ->
+                            Log.e("CriarNovoArtigo", "Erro ao inserir artigo: ${exception.message}")
+                            showToast("Erro ao salvar artigo")
+                        }
+                    )
                 }
             } catch (e: Exception) {
                 Log.e("CriarNovoArtigo", "Erro ao salvar/atualizar artigo no DB: ${e.message}")
@@ -249,13 +282,24 @@ class CriarNovoArtigoActivityRoom : AppCompatActivity() {
             }
         } else {
             if (artigoId != -1L) {
-                artigoViewModel.getArtigoById(artigoId).observe(this) { artigo ->
-                    artigo?.let { artigoEncontrado ->
-                        val artigoAtualizado = artigoEncontrado.copy(guardarFatura = false)
-                        artigoViewModel.updateArtigo(artigoAtualizado)
-                        Log.d("CriarNovoArtigo", "Artigo ID $artigoId removido dos recentes (flag atualizada).")
+                artigoViewModel.getArtigoById(artigoId,
+                    onSuccess = { artigo ->
+                        artigo?.let { artigoEncontrado ->
+                            val artigoAtualizado = artigoEncontrado.copy(guardarFatura = false)
+                            artigoViewModel.updateArtigo(artigoAtualizado,
+                                onSuccess = {
+                                    Log.d("CriarNovoArtigo", "Artigo ID $artigoId removido dos recentes (flag atualizada).")
+                                },
+                                onError = { exception ->
+                                    Log.e("CriarNovoArtigo", "Erro ao atualizar artigo: ${exception.message}")
+                                }
+                            )
+                        }
+                    },
+                    onError = { exception ->
+                        Log.e("CriarNovoArtigo", "Erro ao buscar artigo: ${exception.message}")
                     }
-                }
+                )
             }
             if (idParaRetorno == -1L || idParaRetorno == 0L) {
                 idParaRetorno = -System.currentTimeMillis()
@@ -278,24 +322,30 @@ class CriarNovoArtigoActivityRoom : AppCompatActivity() {
     }
 
     private fun loadArtigoData(id: Long) {
-        artigoViewModel.getArtigoById(id).observe(this) { artigo ->
-            artigo?.let { artigoEncontrado ->
-                binding.editTextNome.setText(artigoEncontrado.nome)
-                binding.editTextPreco.setText(if (artigoEncontrado.preco == 0.0) "" else decimalFormat.format(artigoEncontrado.preco))
+        artigoViewModel.getArtigoById(id,
+            onSuccess = { artigo ->
+                artigo?.let { artigoEncontrado ->
+                    binding.editTextNome.setText(artigoEncontrado.nome)
+                    binding.editTextPreco.setText(if (artigoEncontrado.preco == 0.0) "" else decimalFormat.format(artigoEncontrado.preco))
 
-                val quantidadeParaExibir = if (intent.hasExtra("quantidade_fatura")) {
-                    intent.getIntExtra("quantidade_fatura", 1)
-                } else {
-                    artigoEncontrado.quantidade
+                    val quantidadeParaExibir = if (intent.hasExtra("quantidade_fatura")) {
+                        intent.getIntExtra("quantidade_fatura", 1)
+                    } else {
+                        artigoEncontrado.quantidade
+                    }
+                    binding.editTextQtd.setText(quantidadeParaExibir.toString())
+
+                    binding.editTextDescricao.setText(artigoEncontrado.descricao)
+                    binding.editTextNumeroSerial.setText(artigoEncontrado.numeroSerial)
+                    binding.switchGuardarFatura.isChecked = artigoEncontrado.guardarFatura ?: false
+                    Log.d("CriarNovoArtigo", "Dados do artigo ID $id carregados. Guardar Fatura: ${artigoEncontrado.guardarFatura}")
                 }
-                binding.editTextQtd.setText(quantidadeParaExibir.toString())
-
-                binding.editTextDescricao.setText(artigoEncontrado.descricao)
-                binding.editTextNumeroSerial.setText(artigoEncontrado.numeroSerial)
-                binding.switchGuardarFatura.isChecked = artigoEncontrado.guardarFatura
-                Log.d("CriarNovoArtigo", "Dados do artigo ID $id carregados. Guardar Fatura: ${artigoEncontrado.guardarFatura}")
+            },
+            onError = { exception ->
+                Log.e("CriarNovoArtigo", "Erro ao carregar artigo: ${exception.message}")
+                showToast("Erro ao carregar dados do artigo")
             }
-        }
+        )
         atualizarValorTotal()
     }
 

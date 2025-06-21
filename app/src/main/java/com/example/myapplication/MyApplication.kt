@@ -2,6 +2,9 @@ package com.example.myapplication
 
 import android.app.Application
 import database.AppDatabase
+import android.util.Log
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 
 class MyApplication : Application() {
     
@@ -14,5 +17,6 @@ class MyApplication : Application() {
         
         // Inicializa o banco de dados Room
         database = AppDatabase.getDatabase(this)
+        Log.d("MyApplication", "Banco de dados Room inicializado com sucesso")
     }
 } 

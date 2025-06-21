@@ -10,6 +10,7 @@ import database.entities.Cliente
 import database.entities.Artigo
 import database.entities.Fatura
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collect
 
 class RoomExampleActivity : AppCompatActivity() {
     
@@ -83,55 +84,43 @@ class RoomExampleActivity : AppCompatActivity() {
                 val faturaId = database.faturaDao().insertFatura(novaFatura)
                 Log.d("RoomExample", "Fatura inserida com ID: $faturaId")
                 
-                // Exemplo: Buscar todos os clientes
-                database.clienteDao().getAllClientes().collect { clientes ->
-                    Log.d("RoomExample", "Total de clientes: ${clientes.size}")
-                    clientes.forEach { cliente ->
-                        Log.d("RoomExample", "Cliente: ${cliente.nome} - ${cliente.email}")
-                    }
-                }
-                
-                // Exemplo: Buscar todos os artigos
-                database.artigoDao().getAllArtigos().collect { artigos ->
-                    Log.d("RoomExample", "Total de artigos: ${artigos.size}")
-                    artigos.forEach { artigo ->
-                        Log.d("RoomExample", "Artigo: ${artigo.nome} - R$ ${artigo.preco}")
-                    }
-                }
-                
-                // Exemplo: Buscar todas as faturas
-                database.faturaDao().getAllFaturas().collect { faturas ->
-                    Log.d("RoomExample", "Total de faturas: ${faturas.size}")
-                    faturas.forEach { fatura ->
-                        Log.d("RoomExample", "Fatura: ${fatura.numeroFatura} - R$ ${fatura.subtotal}")
-                    }
-                }
-                
             } catch (e: Exception) {
                 Log.e("RoomExample", "Erro ao usar Room Database", e)
+            }
+        }
+        
+        // Observações movidas para fora do lifecycleScope
+        database.clienteDao().getAllClientes().observe(this) { clientes: List<Cliente> ->
+            Log.d("RoomExample", "Total de clientes: ${clientes.size}")
+            clientes.forEach { cliente: Cliente ->
+                Log.d("RoomExample", "Cliente: ${cliente.nome} - ${cliente.email}")
+            }
+        }
+        
+        lifecycleScope.launch {
+            database.artigoDao().getAllArtigos().collect { artigos: List<Artigo> ->
+                Log.d("RoomExample", "Total de artigos: ${artigos.size}")
+                artigos.forEach { artigo: Artigo ->
+                    Log.d("RoomExample", "Artigo: ${artigo.nome} - R$ ${artigo.preco}")
+                }
+            }
+        }
+        
+        database.faturaDao().getAllFaturas().observe(this) { faturas: List<Fatura> ->
+            Log.d("RoomExample", "Total de faturas: ${faturas.size}")
+            faturas.forEach { fatura: Fatura ->
+                Log.d("RoomExample", "Fatura: ${fatura.numeroFatura} - R$ ${fatura.subtotal}")
             }
         }
     }
 
     private fun carregarClientes() {
-        clienteViewModel.getAllClientes().observe(this) { clientes ->
-            clientes?.let { listaClientes ->
-                val nomes = listaClientes.map { it.nome }
-                val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, nomes)
-                listViewClientes.adapter = adapter
-                Log.d("RoomExampleActivity", "Carregados ${listaClientes.size} clientes")
-            }
-        }
+        // TODO: Implementar quando ClienteViewModel estiver completo
+        Log.d("RoomExampleActivity", "Carregamento de clientes será implementado")
     }
 
     private fun carregarArtigos() {
-        artigoViewModel.getAllArtigos().observe(this) { artigos ->
-            artigos?.let { listaArtigos ->
-                val nomes = listaArtigos.map { it.nome }
-                val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, nomes)
-                listViewArtigos.adapter = adapter
-                Log.d("RoomExampleActivity", "Carregados ${listaArtigos.size} artigos")
-            }
-        }
+        // TODO: Implementar quando ArtigoViewModel estiver completo
+        Log.d("RoomExampleActivity", "Carregamento de artigos será implementado")
     }
 } 

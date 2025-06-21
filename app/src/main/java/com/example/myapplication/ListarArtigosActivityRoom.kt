@@ -8,6 +8,8 @@ import android.widget.ListView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
 class ListarArtigosActivityRoom : AppCompatActivity() {
 
@@ -39,22 +41,30 @@ class ListarArtigosActivityRoom : AppCompatActivity() {
     }
 
     private fun carregarArtigos() {
-        artigoViewModel.getAllArtigos().observe(this) { artigos ->
-            artigos?.let { listaArtigos ->
-                adapter.submitList(listaArtigos)
-                Log.d("ListarArtigosActivityRoom", "Carregados ${listaArtigos.size} artigos")
+        lifecycleScope.launch {
+            artigoViewModel.allArtigos.collect { artigos ->
+                artigos?.let { listaArtigos ->
+                    val nomes = listaArtigos.map { it.nome }
+                    val adapter = ArrayAdapter(this@ListarArtigosActivityRoom, android.R.layout.simple_list_item_1, nomes)
+                    listViewArtigos?.adapter = adapter
+                    Log.d("ListarArtigosActivityRoom", "Carregados ${listaArtigos.size} artigos")
+                }
             }
         }
     }
 
     private fun buscarArtigos(query: String) {
-        if (query.isEmpty()) {
-            carregarArtigos()
-        } else {
-            artigoViewModel.searchArtigos(query).observe(this) { artigos ->
-                artigos?.let { listaArtigos ->
-                    adapter.submitList(listaArtigos)
-                    Log.d("ListarArtigosActivityRoom", "Encontrados ${listaArtigos.size} artigos para '$query'")
+        lifecycleScope.launch {
+            if (query.isEmpty()) {
+                carregarArtigos()
+            } else {
+                artigoViewModel.searchArtigos(query).collect { artigos ->
+                    artigos?.let { listaArtigos ->
+                        val nomes = listaArtigos.map { it.nome }
+                        val adapter = ArrayAdapter(this@ListarArtigosActivityRoom, android.R.layout.simple_list_item_1, nomes)
+                        listViewArtigos?.adapter = adapter
+                        Log.d("ListarArtigosActivityRoom", "Encontrados ${listaArtigos.size} artigos para '$query'")
+                    }
                 }
             }
         }

@@ -44,19 +44,21 @@ class ClientesRecentesActivityRoom : AppCompatActivity() {
         // Listener para selecionar um cliente da lista
         binding.listViewClientesRecentes.setOnItemClickListener { _, _, position, _ ->
             try {
-                val nomeClienteSelecionado = displayList.getOrNull(position) ?: return@setOnItemClickListener
-                val clienteSelecionado = clientesList.find { it.nome == nomeClienteSelecionado }
+                val nomeClienteSelecionado = displayList.getOrNull(position)
+                if (nomeClienteSelecionado != null) {
+                    val clienteSelecionado = clientesList.find { it.nome == nomeClienteSelecionado }
 
-                if (clienteSelecionado != null) {
-                    val resultIntent = Intent().apply {
-                        putExtra("cliente_id", clienteSelecionado.id)
-                        putExtra("nome_cliente", clienteSelecionado.nome)
+                    if (clienteSelecionado != null) {
+                        val resultIntent = Intent().apply {
+                            putExtra("cliente_id", clienteSelecionado.id)
+                            putExtra("nome_cliente", clienteSelecionado.nome)
+                        }
+                        setResult(Activity.RESULT_OK, resultIntent)
+                        finish()
+                    } else {
+                        Log.w("ClientesRecentes", "Cliente selecionado na posição $position não encontrado nos dados base.")
+                        showToast("Erro ao encontrar dados do cliente selecionado.")
                     }
-                    setResult(Activity.RESULT_OK, resultIntent)
-                    finish()
-                } else {
-                    Log.w("ClientesRecentes", "Cliente selecionado na posição $position não encontrado nos dados base.")
-                    showToast("Erro ao encontrar dados do cliente selecionado.")
                 }
             } catch (e: Exception) {
                 Log.e("ClientesRecentes", "Erro ao selecionar cliente: ${e.message}")
@@ -95,8 +97,9 @@ class ClientesRecentesActivityRoom : AppCompatActivity() {
             val clientesRecentes = clientes.sortedByDescending { it.id }.take(20)
             
             clientesRecentes.forEach { cliente ->
-                clientesList.add(ClienteRecenteItem(cliente.id, cliente.nome))
-                displayList.add(cliente.nome)
+                val nomeCliente = cliente.nome ?: "Cliente sem nome"
+                clientesList.add(ClienteRecenteItem(cliente.id, nomeCliente))
+                displayList.add(nomeCliente)
             }
             
             adapter?.notifyDataSetChanged()
