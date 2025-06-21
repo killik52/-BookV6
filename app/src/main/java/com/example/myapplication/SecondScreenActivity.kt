@@ -328,6 +328,10 @@ class SecondScreenActivity : AppCompatActivity() {
             showAddNotaDialog()
         }
 
+        binding.adicionarNotaTextView.setOnClickListener {
+            showAddNotaDialog()
+        }
+
         binding.adicionarFotoTextView.setOnClickListener {
             Log.d("SecondScreen", "TextView Adicionar Foto clicado")
             if (nomeClienteSalvo.isNullOrEmpty() && faturaId == -1L) {
@@ -823,20 +827,43 @@ class SecondScreenActivity : AppCompatActivity() {
 
         val notasPadraoString = notasPadraoPreferences.getString("notas", "") ?: ""
         val notasPadraoList = if (notasPadraoString.isNotEmpty()) notasPadraoString.split("\n").filter { it.isNotBlank() } else emptyList()
-        val todasAsNotas = notasList.toMutableList()
-        notasPadraoList.forEach { notaPadrao ->
-            if (!notasList.contains(notaPadrao)) {
-                todasAsNotas.add(notaPadrao)
-            }
+        
+        // Criar paint específico para notas padrão com tonalidade mais clara
+        val notasPadraoTextPaint = TextPaint().apply {
+            typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
+            textSize = 9f
+            color = Color.parseColor("#999999") // Tonalidade mais clara para notas padrão
         }
 
-        if (todasAsNotas.any { it.isNotBlank() }) {
+        if (notasList.any { it.isNotBlank() } || notasPadraoList.any { it.isNotBlank() }) {
             val notasTitleHeight = headerPaint.textSize + 4f
             currentCanvas.drawText("Notas:", margin, currentYPosition + headerPaint.textSize*0.3f, headerPaint)
             currentYPosition += notasTitleHeight
-            todasAsNotas.forEach { nota ->
+            
+            // Primeiro, desenhar as notas específicas da fatura
+            notasList.forEach { nota ->
                 if (nota.isNotBlank()) {
                     val notaLayout = StaticLayout.Builder.obtain(nota, 0, nota.length, notasTextPaint, contentWidth.toInt())
+                        .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+                        .setLineSpacing(0f, 0.9f)
+                        .setIncludePad(false)
+                        .build()
+                    val notaHeightIndividual = notaLayout.height + 3f
+                    if (currentYPosition + notaHeightIndividual > pageHeight - margin - 30f) {
+                        return@forEach
+                    }
+                    currentCanvas.save()
+                    currentCanvas.translate(margin, currentYPosition)
+                    notaLayout.draw(currentCanvas)
+                    currentCanvas.restore()
+                    currentYPosition += notaHeightIndividual
+                }
+            }
+            
+            // Depois, desenhar as notas padrão com tonalidade mais clara
+            notasPadraoList.forEach { notaPadrao ->
+                if (notaPadrao.isNotBlank() && !notasList.contains(notaPadrao)) {
+                    val notaLayout = StaticLayout.Builder.obtain(notaPadrao, 0, notaPadrao.length, notasPadraoTextPaint, contentWidth.toInt())
                         .setAlignment(Layout.Alignment.ALIGN_NORMAL)
                         .setLineSpacing(0f, 0.9f)
                         .setIncludePad(false)
