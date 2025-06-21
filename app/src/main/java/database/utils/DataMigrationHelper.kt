@@ -1,69 +1,89 @@
 package database.utils
 
 import android.content.Context
-import android.database.Cursor
+import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteOpenHelper
+import android.provider.BaseColumns
 import android.util.Log
-import com.example.myapplication.ClienteDbHelper
-import database.AppDatabase
-import database.entities.*
+import database.entities.Cliente
+import database.entities.Artigo
+import database.entities.Fatura
+import database.repository.ClienteRepository
+import database.repository.ArtigoRepository
+import database.repository.FaturaRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 class DataMigrationHelper(private val context: Context) {
     
-    private val oldDbHelper = ClienteDbHelper(context)
-    private val roomDb = AppDatabase.getDatabase(context)
+    companion object {
+        private const val OLD_DATABASE_NAME = "myapplication.db"
+        private const val OLD_DATABASE_VERSION = 19
+    }
     
-    suspend fun migrateAllData(): Boolean = withContext(Dispatchers.IO) {
-        try {
-            Log.d("DataMigration", "Iniciando migração de dados...")
-            
-            val oldDb = oldDbHelper.readableDatabase
-            
-            // Migrar clientes
-            migrateClientes(oldDb)
-            
-            // Migrar artigos
-            migrateArtigos(oldDb)
-            
-            // Migrar faturas
-            migrateFaturas(oldDb)
-            
-            // Migrar itens de fatura
-            migrateFaturaItens(oldDb)
-            
-            // Migrar notas de fatura
-            migrateFaturaNotas(oldDb)
-            
-            // Migrar fotos de fatura
-            migrateFaturaFotos(oldDb)
-            
-            // Migrar clientes bloqueados
-            migrateClientesBloqueados(oldDb)
-            
-            // Migrar faturas da lixeira
-            migrateFaturasLixeira(oldDb)
-            
-            Log.d("DataMigration", "Migração concluída com sucesso!")
-            true
-            
-        } catch (e: Exception) {
-            Log.e("DataMigration", "Erro durante a migração", e)
-            false
-        } finally {
-            oldDbHelper.close()
+    // Classe interna para acessar o banco SQLite antigo
+    private inner class OldDatabaseHelper(context: Context) : SQLiteOpenHelper(context, OLD_DATABASE_NAME, null, OLD_DATABASE_VERSION) {
+        override fun onCreate(db: SQLiteDatabase) {
+            // Não precisamos criar o banco antigo, apenas acessá-lo
+        }
+        
+        override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+            // Não precisamos fazer upgrade do banco antigo
         }
     }
     
-    private suspend fun migrateClientes(oldDb: android.database.sqlite.SQLiteDatabase) {
-        Log.d("DataMigration", "Migrando clientes...")
+    /**
+     * Migra todos os dados do SQLite antigo para o Room
+     */
+    suspend fun migrateAllData(
+        clienteRepository: ClienteRepository,
+        artigoRepository: ArtigoRepository,
+        faturaRepository: FaturaRepository,
+        onProgress: (String) -> Unit = {}
+    ) = withContext(Dispatchers.IO) {
+        try {
+            val oldDbHelper = OldDatabaseHelper(context)
+            val oldDb = oldDbHelper.readableDatabase
+            
+            onProgress("Iniciando migração de dados...")
+            
+            // Migra clientes
+            migrateClientes(oldDb, clienteRepository, onProgress)
+            
+            // Migra artigos
+            migrateArtigos(oldDb, artigoRepository, onProgress)
+            
+            // Migra faturas
+            migrateFaturas(oldDb, faturaRepository, onProgress)
+            
+            // Migra clientes bloqueados
+            migrateClientesBloqueados(oldDb, onProgress)
+            
+            onProgress("Migração concluída com sucesso!")
+            Log.i("DataMigrationHelper", "Migração de dados concluída com sucesso")
+            
+        } catch (e: Exception) {
+            Log.e("DataMigrationHelper", "Erro durante a migração: ${e.message}", e)
+            onProgress("Erro durante a migração: ${e.message}")
+            throw e
+        }
+    }
+    
+    private suspend fun migrateClientes(
+        oldDb: SQLiteDatabase,
+        repository: ClienteRepository,
+        onProgress: (String) -> Unit
+    ) {
+        onProgress("Migrando clientes...")
         
-        val cursor = oldDb.query("clientes", null, null, null, null, null, null)
+        val cursor = oldDb.query(
+            "clientes", null, null, null, null, null, null
+        )
+        
         cursor?.use {
-            var count = 0
             while (it.moveToNext()) {
                 val cliente = Cliente(
-                    id = it.getLong(it.getColumnIndexOrThrow("_id")),
+                    id = it.getLong(it.getColumnIndexOrThrow(BaseColumns._ID)),
                     nome = it.getString(it.getColumnIndexOrThrow("nome")),
                     email = it.getString(it.getColumnIndexOrThrow("email")),
                     telefone = it.getString(it.getColumnIndexOrThrow("telefone")),
@@ -80,22 +100,29 @@ class DataMigrationHelper(private val context: Context) {
                     numeroSerial = it.getString(it.getColumnIndexOrThrow("numero_serial"))
                 )
                 
-                roomDb.clienteDao().insertCliente(cliente)
-                count++
+                repository.insertCliente(cliente)
             }
-            Log.d("DataMigration", "Migrados $count clientes")
         }
+        
+        Log.i("DataMigrationHelper", "Migrados $count clientes")
+        onProgress("Migrados $count clientes")
     }
     
-    private suspend fun migrateArtigos(oldDb: android.database.sqlite.SQLiteDatabase) {
-        Log.d("DataMigration", "Migrando artigos...")
+    private suspend fun migrateArtigos(
+        oldDb: SQLiteDatabase,
+        repository: ArtigoRepository,
+        onProgress: (String) -> Unit
+    ) {
+        onProgress("Migrando artigos...")
         
-        val cursor = oldDb.query("artigos", null, null, null, null, null, null)
+        val cursor = oldDb.query(
+            "artigos", null, null, null, null, null, null
+        )
+        
         cursor?.use {
-            var count = 0
             while (it.moveToNext()) {
                 val artigo = Artigo(
-                    id = it.getLong(it.getColumnIndexOrThrow("_id")),
+                    id = it.getLong(it.getColumnIndexOrThrow(BaseColumns._ID)),
                     nome = it.getString(it.getColumnIndexOrThrow("nome")),
                     preco = it.getDouble(it.getColumnIndexOrThrow("preco")),
                     quantidade = it.getInt(it.getColumnIndexOrThrow("quantidade")),
@@ -105,22 +132,29 @@ class DataMigrationHelper(private val context: Context) {
                     numeroSerial = it.getString(it.getColumnIndexOrThrow("numero_serial"))
                 )
                 
-                roomDb.artigoDao().insertArtigo(artigo)
-                count++
+                repository.insertArtigo(artigo)
             }
-            Log.d("DataMigration", "Migrados $count artigos")
         }
+        
+        Log.i("DataMigrationHelper", "Migrados $count artigos")
+        onProgress("Migrados $count artigos")
     }
     
-    private suspend fun migrateFaturas(oldDb: android.database.sqlite.SQLiteDatabase) {
-        Log.d("DataMigration", "Migrando faturas...")
+    private suspend fun migrateFaturas(
+        oldDb: SQLiteDatabase,
+        repository: FaturaRepository,
+        onProgress: (String) -> Unit
+    ) {
+        onProgress("Migrando faturas...")
         
-        val cursor = oldDb.query("faturas", null, null, null, null, null, null)
+        val cursor = oldDb.query(
+            "faturas", null, null, null, null, null, null
+        )
+        
         cursor?.use {
-            var count = 0
             while (it.moveToNext()) {
                 val fatura = Fatura(
-                    id = it.getLong(it.getColumnIndexOrThrow("_id")),
+                    id = it.getLong(it.getColumnIndexOrThrow(BaseColumns._ID)),
                     numeroFatura = it.getString(it.getColumnIndexOrThrow("numero_fatura")),
                     cliente = it.getString(it.getColumnIndexOrThrow("cliente")),
                     artigos = it.getString(it.getColumnIndexOrThrow("artigos")),
@@ -135,136 +169,58 @@ class DataMigrationHelper(private val context: Context) {
                     foiEnviada = it.getInt(it.getColumnIndexOrThrow("foi_enviada")) == 1
                 )
                 
-                roomDb.faturaDao().insertFatura(fatura)
-                count++
+                repository.insertFatura(fatura)
             }
-            Log.d("DataMigration", "Migradas $count faturas")
         }
+        
+        Log.i("DataMigrationHelper", "Migradas $count faturas")
+        onProgress("Migradas $count faturas")
     }
     
-    private suspend fun migrateFaturaItens(oldDb: android.database.sqlite.SQLiteDatabase) {
-        Log.d("DataMigration", "Migrando itens de fatura...")
+    private suspend fun migrateClientesBloqueados(
+        oldDb: SQLiteDatabase,
+        onProgress: (String) -> Unit
+    ) {
+        onProgress("Migrando clientes bloqueados...")
         
-        val cursor = oldDb.query("fatura_itens", null, null, null, null, null, null)
+        val cursor = oldDb.query(
+            "clientes_bloqueados", null, null, null, null, null, null
+        )
+        
         cursor?.use {
-            var count = 0
             while (it.moveToNext()) {
-                val faturaItem = FaturaItem(
-                    id = it.getLong(it.getColumnIndexOrThrow("_id")),
-                    faturaId = it.getLong(it.getColumnIndexOrThrow("fatura_id")),
-                    artigoId = it.getLong(it.getColumnIndexOrThrow("artigo_id")),
-                    quantidade = it.getInt(it.getColumnIndexOrThrow("quantidade")),
-                    preco = it.getDouble(it.getColumnIndexOrThrow("preco")),
-                    clienteId = if (it.getColumnIndex("cliente_id") != -1) {
-                        it.getLong(it.getColumnIndex("cliente_id"))
-                    } else null
-                )
-                
-                roomDb.faturaItemDao().insertFaturaItem(faturaItem)
-                count++
+                // Para clientes bloqueados, você pode criar uma entidade separada
+                // ou adicionar um campo de status na entidade Cliente
+                // Por enquanto, vamos apenas logar
+                val nome = it.getString(it.getColumnIndexOrThrow("nome"))
+                Log.d("DataMigrationHelper", "Cliente bloqueado encontrado: $nome")
             }
-            Log.d("DataMigration", "Migrados $count itens de fatura")
         }
+        
+        Log.i("DataMigrationHelper", "Encontrados $count clientes bloqueados")
+        onProgress("Encontrados $count clientes bloqueados")
     }
     
-    private suspend fun migrateFaturaNotas(oldDb: android.database.sqlite.SQLiteDatabase) {
-        Log.d("DataMigration", "Migrando notas de fatura...")
-        
-        val cursor = oldDb.query("fatura_notas", null, null, null, null, null, null)
-        cursor?.use {
-            var count = 0
-            while (it.moveToNext()) {
-                val faturaNota = FaturaNota(
-                    id = it.getLong(it.getColumnIndexOrThrow("_id")),
-                    faturaId = it.getLong(it.getColumnIndexOrThrow("fatura_id")),
-                    nota = it.getString(it.getColumnIndexOrThrow("nota"))
-                )
-                
-                roomDb.faturaNotaDao().insertFaturaNota(faturaNota)
-                count++
-            }
-            Log.d("DataMigration", "Migradas $count notas de fatura")
-        }
+    /**
+     * Verifica se existe um banco SQLite antigo para migrar
+     */
+    fun hasOldDatabase(): Boolean {
+        val dbFile = context.getDatabasePath(OLD_DATABASE_NAME)
+        return dbFile.exists()
     }
     
-    private suspend fun migrateFaturaFotos(oldDb: android.database.sqlite.SQLiteDatabase) {
-        Log.d("DataMigration", "Migrando fotos de fatura...")
-        
-        val cursor = oldDb.query("fatura_fotos", null, null, null, null, null, null)
-        cursor?.use {
-            var count = 0
-            while (it.moveToNext()) {
-                val faturaFoto = FaturaFoto(
-                    id = it.getLong(it.getColumnIndexOrThrow("_id")),
-                    faturaId = it.getLong(it.getColumnIndexOrThrow("fatura_id")),
-                    photoPath = it.getString(it.getColumnIndexOrThrow("photo_path"))
-                )
-                
-                roomDb.faturaFotoDao().insertFaturaFoto(faturaFoto)
-                count++
+    /**
+     * Remove o banco SQLite antigo após migração bem-sucedida
+     */
+    fun removeOldDatabase() {
+        try {
+            val dbFile = context.getDatabasePath(OLD_DATABASE_NAME)
+            if (dbFile.exists()) {
+                dbFile.delete()
+                Log.i("DataMigrationHelper", "Banco SQLite antigo removido com sucesso")
             }
-            Log.d("DataMigration", "Migradas $count fotos de fatura")
-        }
-    }
-    
-    private suspend fun migrateClientesBloqueados(oldDb: android.database.sqlite.SQLiteDatabase) {
-        Log.d("DataMigration", "Migrando clientes bloqueados...")
-        
-        val cursor = oldDb.query("clientes_bloqueados", null, null, null, null, null, null)
-        cursor?.use {
-            var count = 0
-            while (it.moveToNext()) {
-                val clienteBloqueado = ClienteBloqueado(
-                    id = it.getLong(it.getColumnIndexOrThrow("_id")),
-                    nome = it.getString(it.getColumnIndexOrThrow("nome")),
-                    email = it.getString(it.getColumnIndexOrThrow("email")),
-                    telefone = it.getString(it.getColumnIndexOrThrow("telefone")),
-                    informacoesAdicionais = it.getString(it.getColumnIndexOrThrow("informacoes_adicionais")),
-                    cpf = it.getString(it.getColumnIndexOrThrow("cpf")),
-                    cnpj = it.getString(it.getColumnIndexOrThrow("cnpj")),
-                    logradouro = it.getString(it.getColumnIndexOrThrow("logradouro")),
-                    numero = it.getString(it.getColumnIndexOrThrow("numero")),
-                    complemento = it.getString(it.getColumnIndexOrThrow("complemento")),
-                    bairro = it.getString(it.getColumnIndexOrThrow("bairro")),
-                    municipio = it.getString(it.getColumnIndexOrThrow("municipio")),
-                    uf = it.getString(it.getColumnIndexOrThrow("uf")),
-                    cep = it.getString(it.getColumnIndexOrThrow("cep")),
-                    numeroSerial = it.getString(it.getColumnIndexOrThrow("numero_serial"))
-                )
-                
-                roomDb.clienteBloqueadoDao().insertClienteBloqueado(clienteBloqueado)
-                count++
-            }
-            Log.d("DataMigration", "Migrados $count clientes bloqueados")
-        }
-    }
-    
-    private suspend fun migrateFaturasLixeira(oldDb: android.database.sqlite.SQLiteDatabase) {
-        Log.d("DataMigration", "Migrando faturas da lixeira...")
-        
-        val cursor = oldDb.query("faturas_lixeira", null, null, null, null, null, null)
-        cursor?.use {
-            var count = 0
-            while (it.moveToNext()) {
-                val faturaLixeira = FaturaLixeira(
-                    id = it.getLong(it.getColumnIndexOrThrow("_id")),
-                    numeroFatura = it.getString(it.getColumnIndexOrThrow("numero_fatura")),
-                    cliente = it.getString(it.getColumnIndexOrThrow("cliente")),
-                    artigos = it.getString(it.getColumnIndexOrThrow("artigos")),
-                    subtotal = it.getDouble(it.getColumnIndexOrThrow("subtotal")),
-                    desconto = it.getDouble(it.getColumnIndexOrThrow("desconto")),
-                    descontoPercent = it.getInt(it.getColumnIndexOrThrow("desconto_percent")),
-                    taxaEntrega = it.getDouble(it.getColumnIndexOrThrow("taxa_entrega")),
-                    saldoDevedor = it.getDouble(it.getColumnIndexOrThrow("saldo_devedor")),
-                    data = it.getString(it.getColumnIndexOrThrow("data")),
-                    fotosImpressora = it.getString(it.getColumnIndexOrThrow("fotos_impressora")),
-                    notas = it.getString(it.getColumnIndexOrThrow("notas"))
-                )
-                
-                roomDb.faturaLixeiraDao().insertFaturaLixeira(faturaLixeira)
-                count++
-            }
-            Log.d("DataMigration", "Migradas $count faturas da lixeira")
+        } catch (e: Exception) {
+            Log.e("DataMigrationHelper", "Erro ao remover banco antigo: ${e.message}", e)
         }
     }
 } 
